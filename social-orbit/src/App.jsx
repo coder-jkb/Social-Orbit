@@ -23,7 +23,7 @@ import {
 } from './components';
 
 // Services
-import { analyzeFriend, analyzeFriendsBulk, recalculateFriends } from './services';
+import { analyzeFriend, analyzeFriendsBulk, recalculateFriends, vectorStore } from './services';
 
 // Utils
 import secureStorage from './utils/secureStorage';
@@ -91,12 +91,18 @@ export default function SocialOrbit() {
   }, []);
 
   const handleDataLoaded = useCallback((data) => {
-    setFriends(data.friends || []);
+    const loadedFriends = data.friends || [];
+    setFriends(loadedFriends);
     setUserPersona(data.persona || null);
     setFormData(data.formData || EMPTY_FORM);
     setUseMockMode(data.mockMode ?? false);
     setApiKey(data.apiKey || '');
     setInitialDataLoaded(true);
+    
+    // Initialize vector store with existing friends (for semantic similarity)
+    vectorStore.initialize(loadedFriends).then(() => {
+      console.log('Vector store initialized with existing friends');
+    }).catch(console.error);
   }, []);
 
   const handleLockVault = useCallback(() => {
@@ -328,10 +334,13 @@ export default function SocialOrbit() {
 
   // ==================== RECALCULATE HANDLER ====================
   
+  const [recalculateProgress, setRecalculateProgress] = useState(null);
+  
   const handleRecalculate = useCallback(async (selectedFriends) => {
     if (selectedFriends.length === 0) return;
 
     setRecalculating(true);
+    setRecalculateProgress({ processed: 0, total: selectedFriends.length, current: '' });
 
     try {
       const results = await recalculateFriends({
@@ -339,7 +348,10 @@ export default function SocialOrbit() {
         userPersona,
         friendsToRecalculate: selectedFriends,
         useMockMode,
-        allFriends: friends // Pass all friends for context
+        allFriends: friends,
+        onProgress: (progress) => {
+          setRecalculateProgress(progress);
+        }
       });
 
       // Update friends with new positions (preserve color and other data)
@@ -367,6 +379,7 @@ export default function SocialOrbit() {
       alert(`Recalculation failed: ${error.message}`);
     } finally {
       setRecalculating(false);
+      setRecalculateProgress(null);
     }
   }, [apiKey, userPersona, useMockMode, friends]);
 
@@ -415,9 +428,9 @@ export default function SocialOrbit() {
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
           {isCollapsed ? (
-            <span className="block w-3 h-3">‹</span>
+            <span className="block w-3 h-3 relative bottom-[6px] left-[4px]">‹</span>
           ) : (
-            <span className="block w-3 h-3">›</span>
+            <span className="block w-3 h-3 relative bottom-[6px] left-[4px]">›</span>
           )}
         </div>
       </div>
@@ -538,6 +551,7 @@ export default function SocialOrbit() {
             onClose={() => setShowRecalculate(false)}
             friends={friends}
             loading={recalculating}
+            progress={recalculateProgress}
             onRecalculate={handleRecalculate}
           />
         )}

@@ -11,3 +11,11 @@ export {
   validateCoordinates 
 } from './relationshipContext';
 
+export {
+  vectorStore,
+  generateEmbedding,
+  enrichFriendWithEmbedding,
+  getVectorContextForAnalysis,
+  cosineSimilarity
+} from './vectorStore';
+

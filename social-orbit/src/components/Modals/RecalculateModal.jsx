@@ -1,11 +1,13 @@
 /**
  * RecalculateModal Component
  * Select friends to recalculate their positions
+ * 
+ * Supports progress tracking for batch operations
  */
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, RefreshCw, Check, Square, CheckSquare } from 'lucide-react';
+import { X, RefreshCw, Check, Square, CheckSquare, AlertTriangle } from 'lucide-react';
 import { ICON_MAP, DEFAULT_ICON } from '../../constants/icons';
 
 /**
@@ -18,19 +20,14 @@ function renderIcon(iconName, size = 16, color = 'currentColor') {
 
 /**
  * RecalculateModal - Multi-select friends for recalculation
- * @param {Object} props
- * @param {boolean} props.isOpen - Whether modal is open
- * @param {Function} props.onClose - Close the modal
- * @param {Array} props.friends - All friends
- * @param {boolean} props.loading - Whether recalculation is in progress
- * @param {Function} props.onRecalculate - Called with selected friend IDs
  */
 export default function RecalculateModal({
   isOpen,
   onClose,
   friends,
   loading,
-  onRecalculate
+  onRecalculate,
+  progress = null // { processed, total, current }
 }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
 
@@ -60,6 +57,7 @@ export default function RecalculateModal({
   };
 
   const allSelected = selectedIds.size === friends.length && friends.length > 0;
+  const progressPercent = progress ? Math.round((progress.processed / progress.total) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -77,31 +75,68 @@ export default function RecalculateModal({
               Recalculate Positions
             </h2>
             <p className="text-slate-400 text-xs mt-1">
-              Select friends to re-analyze with improved AI
+              {selectedIds.size > 5 
+                ? `Processing in batches of 3 (${Math.ceil(selectedIds.size / 3)} batches)`
+                : 'Select friends to re-analyze with AI'
+              }
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white"
+            disabled={loading}
+            className="text-slate-400 hover:text-white disabled:opacity-50"
           >
             <X size={20} />
           </button>
         </div>
 
+        {/* Progress Bar (when loading) */}
+        {loading && progress && (
+          <div className="px-5 py-3 bg-slate-800/50 border-b border-slate-700">
+            <div className="flex justify-between text-xs text-slate-400 mb-2">
+              <span>Processing: {progress.current}</span>
+              <span>{progress.processed}/{progress.total} ({progressPercent}%)</span>
+            </div>
+            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              ⏱️ Free models have rate limits. Please be patient...
+            </p>
+          </div>
+        )}
+
+        {/* Warning for large selections */}
+        {!loading && selectedIds.size > 10 && (
+          <div className="px-5 py-3 bg-yellow-500/10 border-b border-yellow-500/20 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-yellow-500 flex-shrink-0" />
+            <p className="text-xs text-yellow-400">
+              Processing {selectedIds.size} friends will take ~{Math.ceil(selectedIds.size * 4 / 60)} minutes with free models.
+            </p>
+          </div>
+        )}
+
         {/* Select All */}
-        <div className="px-5 py-3 border-b border-slate-800 bg-slate-800/30">
-          <button
-            onClick={selectAll}
-            className="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition-colors"
-          >
-            {allSelected ? (
-              <CheckSquare size={18} className="text-purple-400" />
-            ) : (
-              <Square size={18} />
-            )}
-            Select All ({friends.length} friends)
-          </button>
-        </div>
+        {!loading && (
+          <div className="px-5 py-3 border-b border-slate-800 bg-slate-800/30">
+            <button
+              onClick={selectAll}
+              className="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition-colors"
+            >
+              {allSelected ? (
+                <CheckSquare size={18} className="text-purple-400" />
+              ) : (
+                <Square size={18} />
+              )}
+              Select All ({friends.length} friends)
+            </button>
+          </div>
+        )}
 
         {/* Friends List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2 modern-scrollbar">
@@ -112,19 +147,30 @@ export default function RecalculateModal({
           ) : (
             friends.map((friend) => {
               const isSelected = selectedIds.has(friend.id);
+              const isProcessing = loading && progress?.current === friend.name;
+              
               return (
                 <button
                   key={friend.id}
-                  onClick={() => toggleSelect(friend.id)}
+                  onClick={() => !loading && toggleSelect(friend.id)}
+                  disabled={loading}
                   className={`w-full p-3 rounded-lg border transition-all flex items-center gap-3 text-left ${
-                    isSelected
-                      ? 'bg-purple-500/10 border-purple-500/50'
-                      : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800'
-                  }`}
+                    isProcessing
+                      ? 'bg-purple-500/20 border-purple-500 animate-pulse'
+                      : isSelected
+                        ? 'bg-purple-500/10 border-purple-500/50'
+                        : 'bg-slate-800/50 border-slate-700 hover:bg-slate-800'
+                  } ${loading ? 'cursor-not-allowed opacity-70' : ''}`}
                 >
                   {/* Checkbox */}
                   <div className={`flex-shrink-0 ${isSelected ? 'text-purple-400' : 'text-slate-500'}`}>
-                    {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                    {isProcessing ? (
+                      <div className="w-5 h-5 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                    ) : isSelected ? (
+                      <CheckSquare size={20} />
+                    ) : (
+                      <Square size={20} />
+                    )}
                   </div>
 
                   {/* Icon */}
@@ -139,6 +185,7 @@ export default function RecalculateModal({
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-white truncate">
                       {friend.name}
+                      {isProcessing && <span className="text-purple-400 ml-2 text-xs">analyzing...</span>}
                     </div>
                     <div className="text-xs text-slate-500 flex gap-3">
                       <span>X: {Math.round(friend.x)}</span>
@@ -161,9 +208,10 @@ export default function RecalculateModal({
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 py-2.5 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 transition-colors"
+              disabled={loading}
+              className="flex-1 py-2.5 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
             >
-              Cancel
+              {loading ? 'Please Wait' : 'Cancel'}
             </button>
             <button
               onClick={handleRecalculate}
@@ -177,7 +225,7 @@ export default function RecalculateModal({
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Recalculating...
+                  {progress ? `${progress.processed}/${progress.total}` : 'Starting...'}
                 </>
               ) : (
                 <>
@@ -187,9 +235,15 @@ export default function RecalculateModal({
               )}
             </button>
           </div>
+          
+          {/* Estimation */}
+          {!loading && selectedIds.size > 0 && (
+            <p className="text-xs text-slate-500 mt-2 text-center">
+              Estimated time: ~{Math.max(1, Math.ceil(selectedIds.size * 4 / 60))} minute{selectedIds.size > 15 ? 's' : ''}
+            </p>
+          )}
         </div>
       </motion.div>
     </div>
   );
 }
-

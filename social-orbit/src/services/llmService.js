@@ -1,12 +1,9 @@
 /**
  * LLM Service
  * 
- * OPTIMIZED TWO-STEP ANALYSIS WITH CONTEXT:
- * 1. Find similar past relationships for context (few-shot learning)
- * 2. Extract structured data from description
- * 3. Calculate X,Y using context + extracted data
- * 
- * This provides consistent, context-aware results.
+ * TWO-STEP STRUCTURED ANALYSIS with Claude 3.5 Haiku:
+ * 1. Extract structured data via 15 questions
+ * 2. Calculate coordinates using scoring rules
  */
 
 import { 
@@ -14,30 +11,21 @@ import {
   CALCULATION_PROMPT, 
   BULK_EXTRACTION_PROMPT,
   BULK_CALCULATION_PROMPT,
-  API_CONFIG 
+  createContextPrompt
 } from '../constants';
+import { callLLM } from '../constants/models';
 import { extractFirstJsonObject, extractFirstJsonArray } from '../utils/jsonParser';
 import { ICON_MAP, DEFAULT_ICON } from '../constants/icons';
 import { buildContextForAnalysis, validateCoordinates } from './relationshipContext';
+import { 
+  vectorStore, 
+  getVectorContextForAnalysis, 
+  enrichFriendWithEmbedding
+} from './vectorStore';
 
 // ============================================================================
-// MOCK DATA - For testing without API
+// MOCK DATA
 // ============================================================================
-
-const MOCK_EXTRACTION = {
-  communication_frequency: 'We communicate about once a week',
-  communication_channels: 'Mostly through text messages and occasional video calls',
-  last_interaction: 'We had a meaningful conversation within the past week',
-  sharing_depth: 'We share some personal things but not our deepest secrets',
-  trust_level: 'I trust them with moderate personal matters',
-  emotional_support: 'We offer each other support occasionally when needed',
-  how_they_met: 'We met through work or mutual friends',
-  relationship_duration: 'We have known each other for 2-5 years',
-  emergency_call: 'I might call them in an emergency',
-  relationship_status: 'The relationship is active and ongoing',
-  barriers: 'Busy schedules sometimes limit our interaction',
-  overall_sentiment: 'Overall I feel positive about this friendship'
-};
 
 export function generateMockAnalysis() {
   const x = Math.floor(Math.random() * 60) + 20;
@@ -47,9 +35,8 @@ export function generateMockAnalysis() {
     x,
     y,
     icon: icons[Math.floor(Math.random() * icons.length)],
-    summary: "Simulated Analysis (Mock Mode)",
-    reasoning: "Random coordinates generated because Mock Mode is active.",
-    extractedData: { ...MOCK_EXTRACTION }
+    summary: "Mock Mode Active",
+    reasoning: "Random values - Mock Mode"
   };
 }
 
@@ -63,64 +50,40 @@ function validateAnalysis(analysis) {
     x: Math.min(Math.max(Number(analysis.x) || 50, 0), 100),
     y: Math.min(Math.max(Number(analysis.y) || 50, 0), 100),
     icon: ICON_MAP[analysis.icon] ? analysis.icon : DEFAULT_ICON,
-    summary: analysis.summary || 'No summary',
-    reasoning: analysis.reasoning || 'No reasoning provided'
+    summary: analysis.summary || 'Analyzed',
+    reasoning: analysis.reasoning || 'Analysis complete'
   };
 }
 
 // ============================================================================
-// API HELPER
+// TWO-STEP ANALYSIS FUNCTIONS
 // ============================================================================
 
-async function callLLM(apiKey, model, systemPrompt, userContent) {
-  const response = await fetch(API_CONFIG.endpoint, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": window.location.href,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent }
-      ]
-    })
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.error?.message || `API Error: ${response.status}`);
-  }
-  
-  return data.choices?.[0]?.message?.content || '';
-}
-
-// ============================================================================
-// SINGLE FRIEND ANALYSIS (with context)
-// ============================================================================
-
+/**
+ * Step 1: Extract structured relationship data
+ */
 async function extractRelationshipData(apiKey, userPersona, friendData, contextStr = '') {
   const userContent = `${contextStr}
-## User's Personality Context:
-${JSON.stringify(userPersona, null, 2)}
+## User Context:
+${userPersona ? JSON.stringify(userPersona, null, 2) : 'Not provided'}
 
-## NEW Friend to Analyze:
+## Friend to Analyze:
 - Name: ${friendData.name}
-- Gender: ${friendData.gender}
-- Age: ${friendData.age}
+- Gender: ${friendData.gender || 'Not specified'}
+- Age: ${friendData.age || 'Not specified'}
 
 ## Relationship Description:
 ${friendData.description}
 
-Extract the 12 key facts from this description.`;
+Answer the 15 questions based on this description.`;
 
-  const response = await callLLM(apiKey, API_CONFIG.extractionModel, EXTRACTION_PROMPT, userContent);
+  const response = await callLLM(apiKey, EXTRACTION_PROMPT, userContent);
   return extractFirstJsonObject(response);
 }
 
+/**
+ * Step 2: Calculate coordinates from extracted data
+ */
 async function calculateCoordinates(apiKey, extractedData, friendName, contextStr = '') {
   const userContent = `${contextStr}
 ## Friend: ${friendName}
@@ -128,92 +91,89 @@ async function calculateCoordinates(apiKey, extractedData, friendName, contextSt
 ## Extracted Relationship Data:
 ${JSON.stringify(extractedData, null, 2)}
 
-Calculate the X and Y coordinates based on this data.`;
+Calculate X and Y coordinates using the scoring rules.`;
 
-  const response = await callLLM(apiKey, API_CONFIG.calculationModel, CALCULATION_PROMPT, userContent);
+  const response = await callLLM(apiKey, CALCULATION_PROMPT, userContent);
   return extractFirstJsonObject(response);
 }
 
-/**
- * Analyze a single friend with context from similar past relationships
- */
+// ============================================================================
+// SINGLE FRIEND ANALYSIS
+// ============================================================================
+
 export async function analyzeFriend({ apiKey, userPersona, friendData, useMockMode, existingFriends = [] }) {
   if (useMockMode || !apiKey) {
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1000));
     return validateAnalysis(generateMockAnalysis());
   }
 
+  console.log(`\n=== Analyzing: ${friendData.name} ===`);
+
+  // Get context from similar relationships
+  let context = '';
   try {
-    // Step 0: Build context from similar relationships
-    const { context, similarCount } = buildContextForAnalysis(friendData, existingFriends);
-    console.log(`Found ${similarCount} similar relationships for context`);
-
-    // Step 1: Extract structured data
-    console.log('Step 1: Extracting relationship data...');
-    const extractedData = await extractRelationshipData(apiKey, userPersona, friendData, context);
-    console.log('Extracted:', extractedData);
-
-    // Step 2: Calculate coordinates
-    console.log('Step 2: Calculating coordinates...');
-    const coordinates = await calculateCoordinates(apiKey, extractedData, friendData.name, context);
-    console.log('Calculated:', coordinates);
-
-    // Step 3: Validate against typical ranges
-    const validation = validateCoordinates(coordinates.x, coordinates.y, friendData.description);
-    if (validation.warnings.length > 0) {
-      console.warn('Coordinate validation warnings:', validation.warnings);
+    if (vectorStore.getStats().totalVectors > 0) {
+      const vc = await getVectorContextForAnalysis(apiKey, friendData.description);
+      context = vc.context || '';
     }
-
-    return validateAnalysis({
-      ...coordinates,
-      extractedData,
-      category: validation.category,
-      validationWarnings: validation.warnings
-    });
-    
-  } catch (error) {
-    console.error('Analysis error:', error);
-    throw error;
+    if (!context && existingFriends.length > 0) {
+      const kc = buildContextForAnalysis(friendData, existingFriends);
+      context = kc.context || '';
+    }
+  } catch (e) {
+    console.log('Context gathering skipped');
   }
+
+  // Step 1: Extract structured data
+  console.log('Step 1: Extracting relationship data...');
+  const extractedData = await extractRelationshipData(apiKey, userPersona, friendData, context);
+  console.log('Extracted:', extractedData);
+
+  // Step 2: Calculate coordinates
+  console.log('Step 2: Calculating coordinates...');
+  const coordinates = await calculateCoordinates(apiKey, extractedData, friendData.name, context);
+  console.log('Calculated:', coordinates);
+
+  // Validate
+  const validation = validateCoordinates(coordinates.x, coordinates.y, friendData.description);
+  if (validation.warnings?.length > 0) {
+    console.warn('Validation warnings:', validation.warnings);
+  }
+
+  const result = validateAnalysis({
+    ...coordinates,
+    extractedData,
+    category: validation.category
+  });
+
+  // Store embedding for future context (non-blocking)
+  enrichFriendWithEmbedding(apiKey, { ...friendData, ...result }).catch(() => {});
+
+  return result;
 }
 
 // ============================================================================
-// BULK ANALYSIS (with cross-referencing)
+// BATCH CONFIGURATION
 // ============================================================================
 
-async function extractBulkData(apiKey, userPersona, friendsList) {
-  const friendsText = friendsList.map((f, i) => `
-### Friend ${i + 1}: ${f.name}
-- Gender: ${f.gender}
-- Age: ${f.age}
-- Description: ${f.description}
-`).join('\n---\n');
+const BATCH_CONFIG = {
+  batchSize: 3,
+  delayBetweenItems: 2000,
+  delayBetweenBatches: 5000
+};
 
-  const userContent = `
-## User's Personality:
-${JSON.stringify(userPersona, null, 2)}
+// ============================================================================
+// BULK ANALYSIS
+// ============================================================================
 
-## Friends to Analyze:
-${friendsText}
-
-Extract the 12 key facts for EACH friend.`;
-
-  const response = await callLLM(apiKey, API_CONFIG.bulkModel, BULK_EXTRACTION_PROMPT, userContent);
-  return extractFirstJsonArray(response);
-}
-
-async function calculateBulkCoordinates(apiKey, extractedDataArray) {
-  const userContent = `
-## Extracted Data for All Friends:
-${JSON.stringify(extractedDataArray, null, 2)}
-
-Calculate X,Y for each friend. Be CONSISTENT - similar data = similar scores.`;
-
-  const response = await callLLM(apiKey, API_CONFIG.bulkModel, BULK_CALCULATION_PROMPT, userContent);
-  return extractFirstJsonArray(response);
-}
-
-export async function analyzeFriendsBulk({ apiKey, userPersona, friendsList, useMockMode, existingFriends = [] }) {
+export async function analyzeFriendsBulk({ 
+  apiKey, 
+  userPersona, 
+  friendsList, 
+  useMockMode, 
+  existingFriends = [],
+  onProgress = null
+}) {
   const validItems = friendsList.filter(item => item.name?.trim() && item.description?.trim());
   
   if (validItems.length === 0) {
@@ -221,7 +181,7 @@ export async function analyzeFriendsBulk({ apiKey, userPersona, friendsList, use
   }
 
   if (useMockMode || !apiKey) {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 1500));
     return validItems.map(item => ({
       ...validateAnalysis(generateMockAnalysis()),
       name: item.name,
@@ -231,92 +191,143 @@ export async function analyzeFriendsBulk({ apiKey, userPersona, friendsList, use
     }));
   }
 
-  try {
-    // Log context info
-    if (existingFriends.length > 0) {
-      console.log(`Using ${existingFriends.length} existing friends for consistency reference`);
-    }
-    
-    console.log('Bulk Step 1: Extracting data for', validItems.length, 'friends...');
-    const extractedDataArray = await extractBulkData(apiKey, userPersona, validItems);
+  const total = validItems.length;
+  const results = [];
+  let processed = 0;
 
-    console.log('Bulk Step 2: Calculating coordinates...');
-    const coordinatesArray = await calculateBulkCoordinates(apiKey, extractedDataArray);
-
-    return coordinatesArray.map((coords, index) => {
-      const original = validItems[index];
-      const extracted = extractedDataArray[index];
-      return validateAnalysis({
-        ...coords,
-        name: original.name,
-        gender: original.gender,
-        age: original.age,
-        description: original.description,
-        extractedData: extracted
-      });
-    });
-    
-  } catch (error) {
-    console.error('Bulk analysis error:', error);
-    throw error;
+  // Process in batches
+  const batches = [];
+  for (let i = 0; i < total; i += BATCH_CONFIG.batchSize) {
+    batches.push(validItems.slice(i, i + BATCH_CONFIG.batchSize));
   }
+
+  console.log(`Processing ${total} friends in ${batches.length} batches`);
+
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+
+    for (const item of batch) {
+      try {
+        const result = await analyzeFriend({
+          apiKey,
+          userPersona,
+          friendData: item,
+          useMockMode: false,
+          existingFriends
+        });
+        results.push({
+          ...result,
+          name: item.name,
+          gender: item.gender,
+          age: item.age,
+          description: item.description
+        });
+      } catch (e) {
+        console.error(`Failed for ${item.name}:`, e.message);
+        results.push({
+          ...validateAnalysis({ x: 50, y: 50, icon: 'User', summary: 'Analysis failed', reasoning: e.message }),
+          name: item.name,
+          gender: item.gender,
+          age: item.age,
+          description: item.description
+        });
+      }
+
+      processed++;
+      if (onProgress) {
+        onProgress({ processed, total, current: item.name });
+      }
+
+      if (processed < total) {
+        await new Promise(r => setTimeout(r, BATCH_CONFIG.delayBetweenItems));
+      }
+    }
+
+    if (batchIndex < batches.length - 1) {
+      await new Promise(r => setTimeout(r, BATCH_CONFIG.delayBetweenBatches));
+    }
+  }
+
+  return results;
 }
 
 // ============================================================================
-// RECALCULATE (with full context)
+// RECALCULATE
 // ============================================================================
 
-export async function recalculateFriends({ apiKey, userPersona, friendsToRecalculate, useMockMode, allFriends = [] }) {
+export async function recalculateFriends({ 
+  apiKey, 
+  userPersona, 
+  friendsToRecalculate, 
+  useMockMode, 
+  allFriends = [],
+  onProgress = null
+}) {
   if (friendsToRecalculate.length === 0) {
-    throw new Error("No friends selected for recalculation");
+    throw new Error("No friends selected");
   }
 
   if (useMockMode || !apiKey) {
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1000));
     return friendsToRecalculate.map(friend => ({
       id: friend.id,
       ...validateAnalysis(generateMockAnalysis())
     }));
   }
 
-  try {
-    // Get context from friends NOT being recalculated (for reference)
-    const contextFriends = allFriends.filter(f => 
-      !friendsToRecalculate.some(r => r.id === f.id)
-    );
+  const total = friendsToRecalculate.length;
+  const results = [];
+  let processed = 0;
 
-    const friendsList = friendsToRecalculate.map(f => ({
-      name: f.name,
-      gender: f.gender,
-      age: f.age,
-      description: f.description
-    }));
+  // Split into batches
+  const batches = [];
+  for (let i = 0; i < total; i += BATCH_CONFIG.batchSize) {
+    batches.push(friendsToRecalculate.slice(i, i + BATCH_CONFIG.batchSize));
+  }
 
-    // Log context for debugging
-    if (contextFriends.length > 0) {
-      const samples = contextFriends.slice(0, 5).map(f => 
-        `${f.name}: X=${Math.round(f.x)}, Y=${Math.round(f.y)}`
-      ).join(', ');
-      console.log(`Using ${contextFriends.length} friends for context reference: ${samples}`);
+  console.log(`Recalculating ${total} friends in ${batches.length} batches`);
+
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+
+    for (const friend of batch) {
+      try {
+        const result = await analyzeFriend({
+          apiKey,
+          userPersona,
+          friendData: friend,
+          useMockMode: false,
+          existingFriends: allFriends
+        });
+        results.push({ id: friend.id, ...result });
+      } catch (e) {
+        console.error(`Recalculate failed for ${friend.name}:`, e.message);
+        results.push({
+          id: friend.id,
+          x: friend.x,
+          y: friend.y,
+          icon: friend.icon,
+          summary: 'Recalculation failed',
+          reasoning: e.message
+        });
+      }
+
+      processed++;
+      if (onProgress) {
+        onProgress({ processed, total, current: friend.name });
+      }
+
+      if (processed < total) {
+        await new Promise(r => setTimeout(r, BATCH_CONFIG.delayBetweenItems));
+      }
     }
 
-    console.log('Recalculate: Extracting data...');
-    const extractedDataArray = await extractBulkData(apiKey, userPersona, friendsList);
-
-    console.log('Recalculate: Calculating coordinates...');
-    const coordinatesArray = await calculateBulkCoordinates(apiKey, extractedDataArray);
-
-    return coordinatesArray.map((coords, index) => {
-      const original = friendsToRecalculate[index];
-      return {
-        id: original.id,
-        ...validateAnalysis(coords),
-        extractedData: extractedDataArray[index]
-      };
-    });
-    
-  } catch (error) {
-    console.error('Recalculate error:', error);
-    throw error;
+    if (batchIndex < batches.length - 1) {
+      console.log('Waiting between batches...');
+      await new Promise(r => setTimeout(r, BATCH_CONFIG.delayBetweenBatches));
+    }
   }
+
+  console.log(`Recalculation complete: ${results.length}/${total}`);
+  return results;
 }
