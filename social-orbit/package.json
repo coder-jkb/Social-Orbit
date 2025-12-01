@@ -1,6 +1,6 @@
 {
   "name": "social-orbit",
-  "homepage": "http://<your-github-username>.github.io/<your-repo-name>",
+  "homepage": "http://coder-jkb.github.io/social-orbit",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist -r git@github.com-personal:coder-jkb/Social-Orbit.git"
   },
   "dependencies": {
     "framer-motion": "^12.23.24",
