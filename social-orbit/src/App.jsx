@@ -233,7 +233,8 @@ export default function SocialOrbit() {
         apiKey,
         userPersona,
         friendData: formData,
-        useMockMode
+        useMockMode,
+        existingFriends: friends // Pass existing friends for context
       });
 
       // Validate icon
@@ -304,7 +305,8 @@ export default function SocialOrbit() {
         apiKey,
         userPersona,
         friendsList: validItems,
-        useMockMode
+        useMockMode,
+        existingFriends: friends // Pass existing friends for context
       });
 
       const processedFriends = results.map((f) => ({
@@ -322,7 +324,7 @@ export default function SocialOrbit() {
     } finally {
       setLoading(false);
     }
-  }, [bulkList, apiKey, userPersona, useMockMode]);
+  }, [bulkList, apiKey, userPersona, useMockMode, friends]);
 
   // ==================== RECALCULATE HANDLER ====================
   
@@ -336,7 +338,8 @@ export default function SocialOrbit() {
         apiKey,
         userPersona,
         friendsToRecalculate: selectedFriends,
-        useMockMode
+        useMockMode,
+        allFriends: friends // Pass all friends for context
       });
 
       // Update friends with new positions (preserve color and other data)
@@ -365,7 +368,7 @@ export default function SocialOrbit() {
     } finally {
       setRecalculating(false);
     }
-  }, [apiKey, userPersona, useMockMode]);
+  }, [apiKey, userPersona, useMockMode, friends]);
 
   // ==================== RENDER ====================
 
