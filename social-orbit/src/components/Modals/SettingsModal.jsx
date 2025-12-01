@@ -118,11 +118,11 @@ export default function SettingsModal({
               <div className="mt-2 bg-green-500/10 border border-green-500/20 rounded p-2 text-xs text-green-400 flex items-center gap-2">
                 <Lock size={12} />
                 <span>
-                  <b>Memory-only:</b> API key is never saved to disk. You'll re-enter it each session.
+                  <b>Encrypted & Expires:</b> API key is stored encrypted and auto-expires after 24 hours.
                 </span>
               </div>
               <p className="mt-1 text-[10px] text-slate-500">
-                ℹ️ Clearing or changing the API key does NOT affect your friends or profile data.
+                ℹ️ Your API key is encrypted with your passphrase. Clearing it does NOT affect friends data.
               </p>
             </div>
 

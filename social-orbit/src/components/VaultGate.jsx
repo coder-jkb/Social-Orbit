@@ -11,8 +11,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Lock, Unlock, Eye, EyeOff, Shield, AlertTriangle, 
-  Key, RefreshCw, Trash2, Download, Upload, Info, HelpCircle
+  Lock, Unlock, Eye, EyeOff, AlertTriangle, 
+  Key, RefreshCw, Trash2, Download, Info, HelpCircle
 } from 'lucide-react';
 import secureStorage, { migrateFromLocalStorage, clearOldLocalStorage } from '../utils/secureStorage';
 
@@ -120,7 +120,7 @@ export default function VaultGate({ onUnlock, onDataLoaded }) {
       const persona = await secureStorage.getItem('persona') || null;
       const formData = await secureStorage.getItem('formData') || null;
       const mockMode = await secureStorage.getItem('mockMode') ?? false;
-      const apiKey = secureStorage.getApiKey() || '';
+      const apiKey = await secureStorage.getApiKey() || ''; // Now async with expiry check
       
       onDataLoaded({ friends, persona, formData, mockMode, apiKey });
     } catch (e) {
@@ -182,9 +182,13 @@ export default function VaultGate({ onUnlock, onDataLoaded }) {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', delay: 0.1 }}
-            className="inline-flex p-4 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-2xl mb-4"
+            className="inline-block mb-4"
           >
-            <Shield className="w-12 h-12 text-purple-400" />
+            <img 
+              src={`${import.meta.env.BASE_URL}social-orbit-logo.png`}
+              alt="Social Orbit" 
+              className="w-24 h-24 mx-auto drop-shadow-2xl"
+            />
           </motion.div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
             Social Orbit

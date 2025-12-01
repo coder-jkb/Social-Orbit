@@ -3,7 +3,7 @@
  * Handles all AI/LLM related operations
  */
 
-import { SINGLE_ANALYSIS_PROMPT, BULK_ANALYSIS_PROMPT, API_CONFIG } from '../constants';
+import { SINGLE_ANALYSIS_PROMPT, BULK_ANALYSIS_PROMPT, RECALCULATE_PROMPT, API_CONFIG } from '../constants';
 import { extractFirstJsonObject, extractFirstJsonArray } from '../utils/jsonParser';
 import { ICON_MAP, DEFAULT_ICON } from '../constants/icons';
 
@@ -162,6 +162,80 @@ export async function analyzeFriendsBulk({ apiKey, userPersona, friendsList, use
     
   } catch (error) {
     console.error('LLM Bulk Analysis Error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Recalculate positions for selected friends
+ * @param {Object} params - Recalculation parameters
+ * @param {string} params.apiKey - OpenRouter API key
+ * @param {Object} params.userPersona - User's persona data
+ * @param {Array} params.friendsToRecalculate - Array of friend objects to recalculate
+ * @param {boolean} params.useMockMode - Whether to use mock mode
+ * @returns {Promise<Array>} Array of recalculated results with original IDs
+ */
+export async function recalculateFriends({ apiKey, userPersona, friendsToRecalculate, useMockMode }) {
+  if (friendsToRecalculate.length === 0) {
+    throw new Error("No friends selected for recalculation");
+  }
+
+  // Use mock mode if enabled or no API key
+  if (useMockMode || !apiKey) {
+    await new Promise(r => setTimeout(r, 1500));
+    return friendsToRecalculate.map(friend => ({
+      id: friend.id,
+      ...validateAnalysis(generateMockAnalysis())
+    }));
+  }
+
+  try {
+    // Construct structured text for recalculation
+    const friendsText = friendsToRecalculate.map((f, i) => 
+      `Friend ${i + 1} (ID: ${f.id}):
+       Name: ${f.name}
+       Gender: ${f.gender}
+       Age: ${f.age}
+       Description: ${f.description}`
+    ).join('\n\n---\n\n');
+
+    const response = await fetch(API_CONFIG.endpoint, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": window.location.href,
+      },
+      body: JSON.stringify({
+        model: API_CONFIG.recalculateModel,
+        messages: [
+          { role: "system", content: RECALCULATE_PROMPT },
+          { role: "user", content: `My Persona: ${JSON.stringify(userPersona)}\n\nFriends to Recalculate:\n${friendsText}` }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error?.message || `API Error: ${response.status}`);
+    }
+    
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("AI returned an empty response.");
+    }
+
+    const results = extractFirstJsonArray(content);
+    
+    // Validate and map results back to original IDs
+    return results.map((result, index) => ({
+      id: result.id || friendsToRecalculate[index].id,
+      ...validateAnalysis(result)
+    }));
+    
+  } catch (error) {
+    console.error('LLM Recalculate Error:', error);
     throw error;
   }
 }

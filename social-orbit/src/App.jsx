@@ -18,11 +18,12 @@ import {
   AddFriendForm,
   BulkImportForm,
   SettingsModal,
-  OnboardingModal
+  OnboardingModal,
+  RecalculateModal
 } from './components';
 
 // Services
-import { analyzeFriend, analyzeFriendsBulk } from './services';
+import { analyzeFriend, analyzeFriendsBulk, recalculateFriends } from './services';
 
 // Utils
 import secureStorage from './utils/secureStorage';
@@ -66,9 +67,11 @@ export default function SocialOrbit() {
   // ==================== UI STATE ====================
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showRecalculate, setShowRecalculate] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [activeTab, setActiveTab] = useState('single');
   const [manualMode, setManualMode] = useState(false);
 
@@ -171,14 +174,14 @@ export default function SocialOrbit() {
 
   // ==================== SETTINGS HANDLERS ====================
   
-  const handleApiKeySave = useCallback(() => {
-    secureStorage.setApiKey(apiKey);
+  const handleApiKeySave = useCallback(async () => {
+    await secureStorage.setApiKey(apiKey);
     setShowSettings(false);
   }, [apiKey]);
 
-  const handleClearApiKey = useCallback(() => {
+  const handleClearApiKey = useCallback(async () => {
     setApiKey('');
-    secureStorage.clearApiKey();
+    await secureStorage.clearApiKey();
   }, []);
 
   // ==================== FRIEND HANDLERS ====================
@@ -321,6 +324,49 @@ export default function SocialOrbit() {
     }
   }, [bulkList, apiKey, userPersona, useMockMode]);
 
+  // ==================== RECALCULATE HANDLER ====================
+  
+  const handleRecalculate = useCallback(async (selectedFriends) => {
+    if (selectedFriends.length === 0) return;
+
+    setRecalculating(true);
+
+    try {
+      const results = await recalculateFriends({
+        apiKey,
+        userPersona,
+        friendsToRecalculate: selectedFriends,
+        useMockMode
+      });
+
+      // Update friends with new positions (preserve color and other data)
+      setFriends((prev) =>
+        prev.map((friend) => {
+          const updated = results.find((r) => r.id === friend.id);
+          if (updated) {
+            return {
+              ...friend,
+              x: updated.x,
+              y: updated.y,
+              icon: ICON_MAP[updated.icon] ? updated.icon : friend.icon,
+              summary: updated.summary,
+              reasoning: updated.reasoning
+            };
+          }
+          return friend;
+        })
+      );
+
+      setShowRecalculate(false);
+      alert(`Successfully recalculated ${results.length} friend(s)!`);
+    } catch (error) {
+      console.error(error);
+      alert(`Recalculation failed: ${error.message}`);
+    } finally {
+      setRecalculating(false);
+    }
+  }, [apiKey, userPersona, useMockMode]);
+
   // ==================== RENDER ====================
 
   // Show vault gate if not unlocked
@@ -385,6 +431,8 @@ export default function SocialOrbit() {
             onEditPersona={() => setShowOnboarding(true)}
             onOpenSettings={() => setShowSettings(true)}
             onLockVault={handleLockVault}
+            onRecalculate={() => setShowRecalculate(true)}
+            friendsCount={friends.length}
           />
 
           {/* Panel Content */}
@@ -476,6 +524,18 @@ export default function SocialOrbit() {
             onClose={() => setShowOnboarding(false)}
             userPersona={userPersona}
             onSubmit={handlePersonaSubmit}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRecalculate && (
+          <RecalculateModal
+            isOpen={showRecalculate}
+            onClose={() => setShowRecalculate(false)}
+            friends={friends}
+            loading={recalculating}
+            onRecalculate={handleRecalculate}
           />
         )}
       </AnimatePresence>

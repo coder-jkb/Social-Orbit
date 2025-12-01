@@ -2,5 +2,5 @@
  * Services barrel export
  */
 
-export { analyzeFriend, analyzeFriendsBulk, generateMockAnalysis } from './llmService';
+export { analyzeFriend, analyzeFriendsBulk, recalculateFriends, generateMockAnalysis } from './llmService';
 

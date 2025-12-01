@@ -267,17 +267,101 @@ class SecureStorage {
     delete this.memoryCache[key];
   }
 
-  // API Key handling - MEMORY ONLY (never persisted)
-  setApiKey(key) {
+  // API Key handling - Encrypted with 24-hour expiry
+  // The API key is stored encrypted in the vault but expires after 24 hours for security
+  
+  async setApiKey(key) {
+    if (!key) {
+      await this.clearApiKey();
+      return;
+    }
+    
+    // Store with timestamp for expiry check
+    const apiKeyData = {
+      key: key,
+      storedAt: Date.now(),
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+    };
+    
+    // Store encrypted if vault is unlocked
+    if (this.isUnlocked) {
+      await this.setItem('_apiKey', apiKeyData);
+    }
+    
+    // Also keep in memory for current session
     this.apiKeyMemory = key;
   }
 
-  getApiKey() {
-    return this.apiKeyMemory;
+  async getApiKey() {
+    // First check memory
+    if (this.apiKeyMemory) {
+      return this.apiKeyMemory;
+    }
+    
+    // Try to load from encrypted storage
+    if (!this.isUnlocked) {
+      return null;
+    }
+    
+    try {
+      const apiKeyData = await this.getItem('_apiKey');
+      
+      if (!apiKeyData || !apiKeyData.key) {
+        return null;
+      }
+      
+      // Check if expired (24 hours)
+      if (Date.now() > apiKeyData.expiresAt) {
+        console.log('API key expired, clearing...');
+        await this.clearApiKey();
+        return null;
+      }
+      
+      // Cache in memory
+      this.apiKeyMemory = apiKeyData.key;
+      return apiKeyData.key;
+      
+    } catch (e) {
+      console.error('Error loading API key:', e);
+      return null;
+    }
   }
 
-  clearApiKey() {
+  async clearApiKey() {
     this.apiKeyMemory = null;
+    if (this.isUnlocked) {
+      try {
+        await this.removeItem('_apiKey');
+      } catch (e) {
+        // Ignore errors when clearing
+      }
+    }
+  }
+  
+  // Check how much time is left before API key expires
+  async getApiKeyExpiryInfo() {
+    if (!this.isUnlocked) return null;
+    
+    try {
+      const apiKeyData = await this.getItem('_apiKey');
+      if (!apiKeyData) return null;
+      
+      const now = Date.now();
+      const remaining = apiKeyData.expiresAt - now;
+      
+      if (remaining <= 0) {
+        return { expired: true, remainingMs: 0 };
+      }
+      
+      return {
+        expired: false,
+        remainingMs: remaining,
+        remainingHours: Math.floor(remaining / (60 * 60 * 1000)),
+        expiresAt: new Date(apiKeyData.expiresAt)
+      };
+    } catch (e) {
+      return null;
+    }
   }
 
   // Change passphrase (requires current passphrase)

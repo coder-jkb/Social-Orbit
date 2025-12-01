@@ -1,11 +1,31 @@
 # Social Orbit 🪐
 
-Social Orbit is a **"Relativistic Relationship Visualizer"** that gamifies your social circle. It plots your friends on a 2D coordinate system where you stand at the center `(0,0)`.
+<p align="center">
+  <img src="social-orbit/public/social-orbit-logo.png" alt="Social Orbit Logo" width="120" />
+</p>
 
-Using an LLM (Large Language Model), it analyzes your text descriptions of relationships and calculates two metrics:
+<p align="center">
+  <strong>A Relativistic Relationship Visualizer</strong><br/>
+  Map your social universe with AI-powered analysis
+</p>
 
-1. **Emotional Distance (X-Axis)** — How close you feel to them
-2. **Interaction Gap (Y-Axis)** — How often you actually interact
+<p align="center">
+  <a href="https://coder-jkb.github.io/Social-Orbit/">🌐 Live Demo</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-security">Security</a>
+</p>
+
+---
+
+## 🎯 What is Social Orbit?
+
+Social Orbit plots your friends on a 2D coordinate system where **you stand at the center (0,0)**. Using AI (LLM), it analyzes your text descriptions of relationships and calculates:
+
+| Axis | Metric | Scale |
+|------|--------|-------|
+| **X-Axis** | Emotional Distance | 0 (Soulmate) → 100 (Stranger) |
+| **Y-Axis** | Interaction Gap | 0 (Daily) → 100 (No Contact) |
 
 The result is a beautiful, ethereal **gradient map of your social life**.
 
@@ -13,174 +33,250 @@ The result is a beautiful, ethereal **gradient map of your social life**.
 
 ## ✨ Features
 
-* **AI-Powered Analysis** – Uses OpenRouter (Google Gemini / Llama) to convert natural language into coordinates
-* **Visual Graph** – A 2D quadrant plot with a radial gradient representing intimacy
-* **Persona Calibration** – Define your own personality (introvert/extrovert) to help the AI understand your perspective
-* **Mock Mode** – Works without an API key for testing and demonstration
-* **Local Privacy** – All data (API keys, friends list) is stored in your browser's localStorage
+### Core Features
+- 🤖 **AI-Powered Analysis** – Uses OpenRouter (Claude/Gemini) to convert natural descriptions into coordinates
+- 📊 **Interactive Graph** – Pan, zoom, and drag friends on a 2D coordinate plane
+- 👤 **Persona Calibration** – Define your personality to help the AI understand your perspective
+- 🎨 **Customizable** – Change icons and colors for each friend
+- 📦 **Bulk Import** – Add multiple friends at once
+
+### Security Features
+- 🔐 **Encrypted Vault** – All data encrypted with AES-256-GCM using your passphrase
+- 🔑 **Secure API Key Storage** – API key encrypted with 24-hour auto-expiry
+- 🚫 **No Backend Required** – Everything runs locally in your browser
+- 🔒 **No Account Needed** – Your data never leaves your device
+
+### New Features
+- ♻️ **Recalculate Positions** – Re-analyze selected friends with improved AI
+- 🎯 **Bias-Reduced Prompts** – Gender-neutral, objective scoring criteria
+- 🧪 **Mock Mode** – Test without an API key
 
 ---
 
-## 🛠️ Prerequisites
+## 🚀 Quick Start
 
-* Node.js (v16 or higher)
-* Yarn (v1 or newer)
+### Prerequisites
+- Node.js (v18 or higher)
+- Yarn (v1.22+)
 
----
+### Installation
 
-## 🚀 Local Setup Guide
+```bash
+# Clone the repository
+git clone https://github.com/coder-jkb/Social-Orbit.git
+cd Social-Orbit
 
-This project was built as a single-file React component, but here is how to set it up in a proper local development environment using **Vite + Tailwind CSS v4**.
-
----
-
-### 1. Create a new Vite project
-
-In your terminal:
-
-```cmd
-yarn create vite social-orbit --template react
+# Install dependencies
 cd social-orbit
-```
+yarn install
 
----
-
-### 2. Install dependencies
-
-Install the required libraries for animations, icons, and logic:
-
-```cmd
-yarn add framer-motion lucide-react clsx tailwind-merge
-```
-
----
-
-### 3. Setup Tailwind CSS (v4 ✅)
-
-Install Tailwind and its dependencies:
-
-```cmd
-yarn add -D tailwindcss postcss autoprefixer
-```
-
-> ⚠️ Tailwind v4 no longer ships the CLI inside the main package, so we must use the new CLI package.
-
-Initialize Tailwind using the new CLI:
-
-```cmd
-yarn dlx @tailwindcss/cli init -p
-```
-
-If that doesn’t work on your system, use:
-
-```cmd
-npx @tailwindcss/cli init -p
-```
-
-This will generate:
-
-* `tailwind.config.js`
-* `postcss.config.js`
-
-Now update your **tailwind.config.js** to scan your files:
-
-```js
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
-```
-
----
-
-### 4. Add Tailwind to your CSS
-
-In `src/index.css`:
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  background-color: #020617; /* slate-950 */
-  color: white;
-}
-```
-
----
-
-### 5. Add the Application Code
-
-1. Delete the default contents in:
-
-   * `src/App.jsx`
-   * `src/App.css`
-
-2. Copy the code from the **SocialOrbit.jsx** file (provided in the previous chat)
-
-3. Paste it into:
-
-```
-src/App.jsx
-```
-
----
-
-### 6. Run the Project
-
-```cmd
+# Start development server
 yarn dev
 ```
 
-Then open the URL shown in your terminal (usually:
-**[http://localhost:5173](http://localhost:5173)**)
+Open **http://localhost:5173** in your browser.
+
+### First Time Setup
+
+1. **Create a Passphrase** – This encrypts all your data locally
+2. **Define Your Persona** – Help the AI understand your perspective
+3. **Add API Key** (optional) – Get one from [openrouter.ai](https://openrouter.ai)
+4. **Start Adding Friends!**
 
 ---
 
-## 🔑 API Key Setup (Optional)
+## 🔐 Security
 
-To use the real AI analysis features, you need an API key from **OpenRouter**.
+### How Your Data is Protected
 
-1. Go to **openrouter.ai**
+| Data | Storage | Encryption | Expiry |
+|------|---------|------------|--------|
+| Friends & Profile | IndexedDB | AES-256-GCM | Never (until you delete) |
+| API Key | IndexedDB | AES-256-GCM | 24 hours |
+| Passphrase | Never stored | N/A | N/A |
+
+### Security Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Your Browser                          │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────────────────────────┐ │
+│  │ Passphrase  │───▶│  PBKDF2 Key Derivation          │ │
+│  │ (you enter) │    │  (100,000 iterations + salt)    │ │
+│  └─────────────┘    └───────────────┬─────────────────┘ │
+│                                     │                    │
+│                                     ▼                    │
+│                     ┌───────────────────────────────┐   │
+│                     │     AES-256-GCM Encryption    │   │
+│                     └───────────────┬───────────────┘   │
+│                                     │                    │
+│                                     ▼                    │
+│  ┌─────────────────────────────────────────────────────┐│
+│  │              IndexedDB (Encrypted Blobs)            ││
+│  │  • Friends data    • Persona    • API Key (24h)     ││
+│  └─────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────┘
+```
+
+### What if I forget my passphrase?
+
+⚠️ **No recovery is possible** – your data is truly encrypted. You can reset and start fresh via "Advanced Options" → "Reset & Create New Vault".
+
+---
+
+## 🔑 API Key Setup
+
+1. Go to **[openrouter.ai](https://openrouter.ai)**
 2. Sign up and create a free API key
-3. In the Social Orbit app, click the **Settings (⚙️)** icon
-4. Paste your key
+3. In Social Orbit, click **Settings (⚙️)**
+4. Paste your key and click Save
 
-**Recommended model:**
+**Models Used:**
+- Single analysis: `anthropic/claude-3.5-haiku`
+- Bulk analysis: `google/gemini-2.0-flash-exp:free`
+
+Your API key is:
+- ✅ Encrypted with your passphrase
+- ✅ Auto-expires after 24 hours
+- ✅ Can be cleared anytime in Settings
+
+---
+
+## 📁 Project Structure
 
 ```
-google/gemini-2.0-flash-exp:free
+social-orbit/
+├── src/
+│   ├── components/
+│   │   ├── Graph/           # Graph viewport components
+│   │   │   ├── GraphCanvas.jsx
+│   │   │   ├── FriendNode.jsx
+│   │   │   ├── ClusterMenu.jsx
+│   │   │   ├── GraphControls.jsx
+│   │   │   └── GraphBackground.jsx
+│   │   ├── Panel/           # Control panel components
+│   │   │   ├── PanelHeader.jsx
+│   │   │   ├── FriendDetail.jsx
+│   │   │   ├── AddFriendForm.jsx
+│   │   │   └── BulkImportForm.jsx
+│   │   ├── Modals/          # Modal dialogs
+│   │   │   ├── SettingsModal.jsx
+│   │   │   ├── OnboardingModal.jsx
+│   │   │   └── RecalculateModal.jsx
+│   │   └── VaultGate.jsx    # Secure unlock screen
+│   ├── services/
+│   │   └── llmService.js    # AI/LLM integration
+│   ├── hooks/
+│   │   └── useGraphInteraction.js
+│   ├── utils/
+│   │   ├── secureStorage.js # Encrypted storage
+│   │   └── jsonParser.js    # Robust JSON extraction
+│   ├── constants/
+│   │   ├── icons.js
+│   │   ├── colors.js
+│   │   └── prompts.js       # AI system prompts
+│   └── App.jsx              # Main application
+└── public/
+    ├── social-orbit-logo.png
+    └── social-orbit-logo-with-text.png
 ```
 
 ---
 
-## 🧠 System Prompt Logic
+## 🧠 AI Prompt Engineering
 
-The “brain” of the app uses a custom system prompt to instruct the AI.
+The AI uses carefully crafted prompts to minimize bias:
 
-If you want to tweak the scoring logic, look for this constant in the code:
+### Anti-Bias Rules
+- ✅ **Gender-neutral scoring** – Same description = same scores regardless of gender
+- ✅ **Ignore writing style** – Slang, emojis, casual language don't affect scores
+- ✅ **Objective criteria** – Scoring based on concrete factors only:
+  - Communication frequency
+  - Trust level
+  - Emotional depth
+  - Practical support
 
-```js
-const SYSTEM_PROMPT = `
-You are a Relationship Cartographer...
-...
-`
+### Scoring Criteria
+
+**Emotional Distance (X-Axis):**
+| Score | Meaning |
+|-------|---------|
+| 0-15 | Share deepest secrets, complete trust, like family |
+| 16-30 | High trust, emotional support, discuss personal issues |
+| 31-50 | Good friends, some personal sharing |
+| 51-70 | Casual/situational friends (work, school) |
+| 71-85 | Acquaintances |
+| 86-100 | Barely know each other |
+
+**Interaction Gap (Y-Axis):**
+| Score | Meaning |
+|-------|---------|
+| 0-10 | Daily contact |
+| 11-25 | Multiple times per week |
+| 26-40 | Weekly |
+| 41-55 | Few times per month |
+| 56-70 | Monthly or less |
+| 71-85 | Few times per year |
+| 86-100 | Rarely/lost contact |
+
+---
+
+## 🚢 Deployment
+
+### Deploy to GitHub Pages
+
+**Windows:**
+```batch
+deploy.bat "Your commit message"
 ```
 
-This is where you can modify:
+**Linux/Mac:**
+```bash
+chmod +x deploy.sh
+./deploy.sh "Your commit message"
+```
 
-* Emotional weightings
-* Social bias
-* Personality influence
-* Distance intensity
+**Manual deployment:**
+```bash
+cd social-orbit
+yarn build
+npx gh-pages -d dist -r git@github.com:YOUR_USERNAME/Social-Orbit.git
+```
+
+---
+
+## 🛠️ Development
+
+### Available Scripts
+
+```bash
+yarn dev      # Start development server
+yarn build    # Build for production
+yarn preview  # Preview production build
+yarn lint     # Run ESLint
+```
+
+### Tech Stack
+
+- **Framework:** React 19 + Vite
+- **Styling:** Tailwind CSS
+- **Animations:** Framer Motion
+- **Icons:** Lucide React
+- **Storage:** IndexedDB + Web Crypto API
+- **AI:** OpenRouter API
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
@@ -188,4 +284,10 @@ This is where you can modify:
 
 This project is open source. Modify it. Remix it. Use it to understand your universe of people.
 
-Your orbit is yours 🌌
+**Your orbit is yours** 🌌
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://github.com/coder-jkb">coder-jkb</a>
+</p>
